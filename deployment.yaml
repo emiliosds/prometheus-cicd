@@ -1,10 +1,15 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-deployment
   namespace: monitoring
+  labels:
+    app: prometheus-server
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-server
   template:
     metadata:
       labels:
@@ -12,12 +17,20 @@ spec:
     spec:
       containers:
         - name: prometheus
-          image: prom/prometheus:v2.1.0
+          image: prom/prometheus
           args:
+            - "--storage.tsdb.retention.time=12h"
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.path=/prometheus/"
           ports:
             - containerPort: 9090
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500M
+            limits:
+              cpu: 1
+              memory: 1Gi
           volumeMounts:
             - name: prometheus-config-volume
               mountPath: /etc/prometheus/
@@ -31,14 +44,19 @@ spec:
   
         - name: prometheus-storage-volume
           emptyDir: {}
----
+-------
+apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-service
+  namespace: monitoring
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port:   '9090'
 spec:
   selector: 
     app: prometheus-server
-  type: NodePort
+  type: NodePort  
   ports:
     - port: 8080
       targetPort: 9090 
